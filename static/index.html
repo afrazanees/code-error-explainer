@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Error Explainer</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      line-height: 1.5;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: #0f172a;
+    }
+
+    .panel {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: #334155;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      padding: 0.75rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.875rem;
+      color: #0f172a;
+      resize: vertical;
+      margin-bottom: 0.75rem;
+    }
+
+    textarea:focus {
+      outline: 2px solid #0f172a;
+      outline-offset: 1px;
+    }
+
+    button {
+      background-color: #0f172a;
+      color: #ffffff;
+      border: none;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #1e293b;
+    }
+
+    button:disabled {
+      background-color: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    .status {
+      font-size: 0.875rem;
+      margin-top: 0.75rem;
+      color: #475569;
+    }
+
+    .status.error {
+      color: #b91c1c;
+    }
+
+    .response-box {
+      margin-top: 1.25rem;
+      display: none;
+    }
+
+    .response-content {
+      background: #f1f5f9;
+      padding: 1rem;
+      border-radius: 4px;
+      font-size: 0.9375rem;
+      color: #0f172a;
+      margin-top: 0.5rem;
+      line-height: 1.6;
+    }
+
+    .response-content p {
+      margin-bottom: 0.75rem;
+    }
+
+    .response-content p:last-child {
+      margin-bottom: 0;
+    }
+
+    .response-content strong {
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .response-content pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 0.75rem 1rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 0.75rem 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.875rem;
+      line-height: 1.45;
+    }
+
+    .response-content code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.875rem;
+    }
+
+    .response-content :not(pre) > code {
+      background: #e2e8f0;
+      color: #0f172a;
+      padding: 0.125rem 0.375rem;
+      border-radius: 3px;
+    }
+
+    .response-content ul, .response-content ol {
+      margin: 0.5rem 0 0.75rem 1.25rem;
+    }
+
+    .response-content li {
+      margin-bottom: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Code Error Explainer</h1>
+
+    <div class="panel">
+      <label for="error-input">Paste error message or code snippet</label>
+      <textarea id="error-input" placeholder="Paste a traceback, compiler error, or problematic snippet..."></textarea>
+      <button id="submit-btn">Explain Error</button>
+      <div id="status-msg" class="status"></div>
+
+      <div id="response-box" class="response-box">
+        <label>Explanation and Fix</label>
+        <div id="response-content" class="response-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    const errorInput = document.getElementById("error-input");
+    const submitBtn = document.getElementById("submit-btn");
+    const statusMsg = document.getElementById("status-msg");
+    const responseBox = document.getElementById("response-box");
+    const responseContent = document.getElementById("response-content");
+
+    submitBtn.addEventListener("click", async () => {
+      const text = errorInput.value.trim();
+      if (!text) {
+        statusMsg.className = "status error";
+        statusMsg.textContent = "Please enter an error message or snippet.";
+        return;
+      }
+
+      submitBtn.disabled = true;
+      statusMsg.className = "status";
+      statusMsg.textContent = "Analyzing error...";
+      responseBox.style.display = "none";
+
+      try {
+        const res = await fetch("/explain", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input: text })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || "Analysis failed.");
+        }
+
+        statusMsg.textContent = "";
+        if (window.marked && typeof marked.parse === "function") {
+          responseContent.innerHTML = marked.parse(data.explanation);
+        } else {
+          responseContent.textContent = data.explanation;
+        }
+        responseBox.style.display = "block";
+      } catch (err) {
+        statusMsg.className = "status error";
+        statusMsg.textContent = err.message;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
